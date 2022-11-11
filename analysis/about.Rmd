@@ -7,4 +7,4 @@ editor_options:
   chunk_output_type: console
 ---
 
-Describe your project.
+Minicourse "Application of genomic selection to data from multiple environments" with Professor PhD Kaio Dias in XIII SIGM by GENMELHOR.

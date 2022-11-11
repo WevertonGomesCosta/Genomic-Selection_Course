@@ -1,0 +1,575 @@
+---
+title: "Genomic selection in multi-environment"
+author: 
+  - Costa, W. G.^[Weverton Gomes da Costa, Pós-Doutorando, Embrapa Mandioca e Fruticultura, wevertonufv@gmail.com]
+date: "`r Sys.Date()`"
+site: workflowr::wflow_site
+url: https://wevertongomescosta.github.io/Genomic-Selection_Course/genomicselection2
+output: workflowr::wflow_html
+editor_options:
+  chunk_output_type: console
+github-repo: wevertongomescosta/Genomic-Selection_Course
+---
+
+```{r setup, include=FALSE} 
+knitr::opts_chunk$set(echo = TRUE,
+                      warning = FALSE)
+memory.limit(70000)
+```
+
+Yesterday, we learned how to perform genomic selection in a single environment trial. Today, we will expand the models to a multiple-environment context.
+
+To perform the analyses, we will need the following packages:
+
+```{r message=FALSE}
+library(kableExtra)
+require(RCurl)
+require(data.table)
+require(AGHmatrix)
+require(rrBLUP)
+require(BGLR)
+require(tidyverse)
+require(ComplexHeatmap)
+require(cvTools)
+require(patchwork)
+require(emmeans)
+```
+
+<br>
+
+## Data
+
+We will use the same data set as yesterday. Recall that the data are available online at this [GitHub page](https://github.com/samuelbfernandes/Trait-assisted-GS) [@fernandes_efficiency_2018].
+
+```{r}
+adjmeans = read.csv(
+  "https://raw.githubusercontent.com/samuelbfernandes/Trait-assisted-GS/master/means.csv"
+)
+adjmeans$GENO = as.factor(adjmeans$GENO)
+adjmeans$LOC = as.factor(adjmeans$LOC)
+```
+
+
+```{r}
+head(adjmeans) %>% kbl(escape = F, align = 'c') %>%
+  kable_classic(
+    "hover",
+    full_width = F,
+    position = "center",
+    fixed_thead = T
+  )
+```
+
+In this case, we will use the whole data set. Note that the environments differ regarding the number of evaluated genotypes:
+
+```{r}
+adjmeans %>% group_by(LOC) %>% summarise(length(GENO)) %>% kbl(
+  escape = F,
+  align = 'c',
+  col.names = c("Environments", "Number of genotypes")
+) %>%
+  kable_classic(
+    "hover",
+    full_width = F,
+    position = "center",
+    fixed_thead = T
+  )
+```
+
+Note also that some genotypes were not evaluated in all the environments:
+
+```{r}
+genmat = model.matrix( ~ -1 + GENO, data = adjmeans)
+envmat = model.matrix( ~ -1 + LOC, data = adjmeans)
+genenvmat = t(envmat) %*% genmat
+genenvmat_ch = ifelse(genenvmat == 1, "Present", "Abscent")
+Heatmap(
+  genenvmat_ch,
+  col = c("white", "tomato"),
+  show_column_names = F,
+  heatmap_legend_param = list(title = ""),
+  column_title = "Genotypes",
+  row_title = "Environments"
+)
+```
+
+In the Heatmap above, each column represents a genotype. The column is red if the genotype is present in an environment (in the rows), or red if it is absent.
+
+We can also see how many genotypes we have in common between the environments:
+
+```{r include=FALSE}
+genenvmat %*% t(genenvmat)
+```
+
+```{r}
+genenvmat %*% t(genenvmat) %>% kbl(escape = F, align = 'c') %>%
+  kable_classic(
+    "hover",
+    full_width = F,
+    position = "center",
+    fixed_thead = T
+  )
+```
+
+In the matrix above, the diagonal represents the number of genotypes in the j-th environment and off-diagonal is the number of common genotypes between the j-th and the j'-th environments.
+
+The distribution of frequencies regarding the evaluated trait (grain yield) in all the environments is also similar to the gaussian distribution:
+
+```{r}
+ggplot(adjmeans, aes(x = Y)) +
+  geom_histogram(aes(y = ..density..),
+                 bins = 30,
+                 colour = "black",
+                 fill = "steelblue") +
+  geom_density(alpha = .7,
+               size = 1.5,
+               colour = "tomato") +
+  labs(x = NULL, title = "Grain Yield", y = "Density")
+```
+
+<br>
+
+Now we will load the genomic data. Here, we will also use the whole matrix:
+
+```{r}
+SNPs = fread(
+  "https://raw.githubusercontent.com/samuelbfernandes/Trait-assisted-GS/master/snps.csv"
+)
+names_lines = SNPs[, 1]
+SNPs = SNPs[, -1]
+SNPs = as.matrix(SNPs[1:dim(SNPs)[1], 1:dim(SNPs)[2]])
+rownames(SNPs) = names_lines$V1
+dim(SNPs)
+```
+
+```{r}
+SNPs[1:5, 1:5]
+```
+
+```{r}
+SNPs[1:5, 1:5] %>% kbl(escape = F, align = 'c') %>%
+  kable_classic(
+    "hover",
+    full_width = T,
+    position = "center",
+    fixed_thead = T
+  ) %>% footnote("Dimension: 453 $\\times$ 58960", general_title = "")
+```
+
+<br>
+
+<br>
+
+
+## Building the G matrix
+
+Recall that we can change the SNPs codification to a dosage solution by simply summing the matrix's elements by one:
+
+```{r}
+SNPs = SNPs + 1
+```
+
+```{r}
+SNPs[1:5, 1:5]
+```
+
+```{r}
+SNPs[1:5, 1:5] %>% kbl(escape = F, align = 'c') %>%
+  kable_classic(
+    "hover",
+    full_width = T,
+    position = "center",
+    fixed_thead = T
+  )
+```
+
+Again, we will use the [AGHmatrix](https://cran.r-project.org/web/packages/AGHmatrix/vignettes/Tutorial_AGHmatrix.html) package [@amadeu_aghmatrix_2016] to build the G matrix:
+
+```{r}
+G_matrix = Gmatrix(SNPs,
+                   method = "VanRaden",
+                   ploidy = 2,
+                   missingValue = NA)
+```
+
+Now we have the whole G matrix (453 x 453), which we can represent using a heatmap:
+
+```{r}
+Heatmap(
+  G_matrix,
+  show_row_names = F,
+  show_column_names = F,
+  heatmap_legend_param = list(title = "Res")
+)
+```
+
+"Res" in the heatmap legend title is for "Resemblance". 
+
+<br>
+
+<br>
+
+## Genomic selection
+
+For all the multi-environment genomic analyses, we will use the [BGLR](https://github.com/gdlc/BGLR-R) package [@BGLR]. Here, we will illustrate an analysis using the Bayesian Ridge Regression, but the reader may employ different methods by changing the model term in the ETA. Indeed, the only difference between the multiple-environment and the single-environment genomic selection using BGLR is in the ETA. This is because we have to build the matrices of the other effects of the model besides the marker effects. The step-by-step below is inspired by the script that @persa_development_2021 made available in their article. The reader can also consult other relevant articles, such as @dias_improving_2018 and @jarquin_reaction_2014.
+
+### 1. Restraining the genotype means - only adj. means and genotyped:
+
+```{r}
+length(levels(adjmeans$GENO))
+adjmeans = droplevels(adjmeans[adjmeans$GENO %in% rownames(SNPs),])
+length(levels(adjmeans$GENO))
+```
+
+<br>
+
+
+### 2. Building the genotype and environment design matrices:
+
+```{r}
+envmat = model.matrix( ~ -1 + LOC, data = adjmeans)
+```
+
+```{r}
+envmat[1:5, 1:3] %>% kbl(escape = F, align = 'c') %>%
+  kable_classic(
+    "hover",
+    full_width = F,
+    position = "center",
+    fixed_thead = T
+  ) %>% footnote("Dimension: 1002 $\\times$ 3", general_title = "")
+```
+
+```{r}
+genmat = model.matrix( ~ -1 + GENO, data = adjmeans)
+```
+
+```{r}
+genmat[1:5, 1:5] %>% kbl(escape = F, align = 'c') %>%
+  kable_classic(
+    "hover",
+    full_width = F,
+    position = "center",
+    fixed_thead = T
+  ) %>% footnote("Dimension: 1002 $\\times$ 453", general_title = "")
+```
+
+<br>
+
+### 3. Building the environmental and genetic covariance matrices:
+
+```{r}
+G = tcrossprod(tcrossprod(genmat, G_matrix), genmat)
+```
+
+```{r}
+G[1:5, 1:5] %>% kbl(escape = F, align = 'c') %>%
+  kable_classic(
+    "hover",
+    full_width = F,
+    position = "center",
+    fixed_thead = T
+  ) %>% footnote("Dimension: 1002 $\\times$ 1002", general_title = "")
+```
+
+
+```{r}
+E = tcrossprod(envmat)
+```
+
+```{r}
+E[1:5, 1:5] %>% kbl(escape = F, align = 'c') %>%
+  kable_classic(
+    "hover",
+    full_width = F,
+    position = "center",
+    fixed_thead = T
+  ) %>% footnote("Dimension: 1002 $\\times$ 1002", general_title = "")
+```
+
+<br>
+
+### 4. Building the interaction matrix:
+
+```{r}
+GE = G * E
+```
+
+```{r}
+GE[1:5, 1:5] %>% kbl(escape = F, align = 'c') %>%
+  kable_classic(
+    "hover",
+    full_width = F,
+    position = "center",
+    fixed_thead = T
+  ) %>% footnote("Dimension: 1002 $\\times$ 1002", general_title = "")
+```
+
+<br>
+
+
+### 5. Setting the linear predictors and the priors (ETA)
+
+```{r}
+ETA = list(list(X = E, model = "FIXED"),
+           list(X = G, model = "BRR"),
+           list(X = GE, model = "BRR"))
+```
+
+<br>
+
+### 6. Running the model
+
+```{r}
+BRR = BGLR(
+  y = adjmeans$Y,
+  ETA = ETA,
+  nIter = 10000,
+  burnIn = 5000,
+  thin = 5,
+  verbose = F
+)
+
+BRR_GENO = data.frame(
+  "Genotype" = adjmeans$GENO,
+  "Environment" = adjmeans$LOC,
+  "Yield" = adjmeans$Y,
+  "GEBV" = BRR$yHat
+)
+
+parvar = data.frame(
+  'Parameter' = c("G", "GE", "e"),
+  'Variance' = c(BRR$ETA[[2]]$varB, BRR$ETA[[3]]$varB, BRR$varE)
+)
+```
+
+```{r}
+parvar %>% kbl(escape = F, align = 'c') %>%
+  kable_classic(
+    "hover",
+    full_width = T,
+    position = "center",
+    fixed_thead = T
+  )
+```
+
+
+<br>
+
+
+<br>
+
+## Genomic selection - Using eigenvalues
+
+The user may provide the eigenvalues of the covariance matrices that we built in the last topic:
+
+```{r}
+G = tcrossprod(tcrossprod(genmat, G_matrix), genmat)
+E = tcrossprod(envmat)
+GE = G * E
+
+EVD_G = eigen(G)
+EVD_GE = eigen(GE)
+```
+
+This action is useful for optimizing the computational time. After obtaining the eigenvalues (and the eigenvectors), we can insert them in the ETA component, substituting the covariance matrices. In that case, we will no longer use the BRR method. Instead, we will use the Reproducing Kernel Hilbert Spaces (RKHS) regressions, which use the eigenvalues to perform the analyses
+
+```{r}
+ETA = list(
+  list(X = E, model = "FIXED"),
+  list(
+    K = EVD_G$vectors,
+    d = EVD_G$values,
+    model = "RKHS"
+  ),
+  list(
+    V = EVD_GE$vectors,
+    d = EVD_GE$values,
+    model = "RKHS"
+  )
+)
+```
+
+After defining the ETA, we can fit the model:
+
+```{r}
+RKHS = BGLR(
+  y = adjmeans$Y,
+  ETA = ETA,
+  nIter = 10000,
+  burnIn = 5000,
+  thin = 5,
+  verbose = F
+)
+
+RKHS_GENO = data.frame(
+  "Genotype" = adjmeans$GENO,
+  "Environment" = adjmeans$LOC,
+  "Yield" = adjmeans$Y,
+  "GEBV" = RKHS$yHat
+)
+
+parvar = data.frame(
+  'Parameter' = c("G", "GE", "e"),
+  'Variance' = c(RKHS$ETA[[2]]$varU, RKHS$ETA[[3]]$varU, RKHS$varE)
+)
+```
+
+```{r}
+data.frame(
+  'Parameter' = c("G", "GE", "e"),
+  'Variance' = c(RKHS$ETA[[2]]$varU, RKHS$ETA[[3]]$varU, RKHS$varE)
+) %>% kbl(escape = F, align = 'c') %>%
+  kable_classic(
+    "hover",
+    full_width = T,
+    position = "center",
+    fixed_thead = T
+  )
+```
+
+<br>
+
+<br>
+
+## Cross-validation
+
+In the multi-environment context, there are four types of cross-validation: CV1, CV2, CV0, and CV00. In CV1, we predict the performance of genotypes that were not tested in any environments, based on the performance of their relatives. In CV2, we predict the performance of genotypes that were tested in some environments but were not tested in others. This is a common situation in plant breeding and configuring the sparse-test design. CV1 and CV2 are genotype-related. Conversely, CV0 and CV00 are related to the environments. In CV0, we predict how would be the performance of the tested genotypes in an untested environment. In CV00, we predict the performance of untested genotypes in untested environments. All the CV schemes have the same base: divide the data into a training set and a validation set by separating the data into *k* folds, then attributing *NA* for one fold and trying to predict the data from this fold based on the others.
+
+Here, we will illustrate only CV1
+
+### CV1
+
+####  **1. Determine the number of folds and repetitions**
+
+```{r}
+nfolds = 3
+nrept = 6
+```
+
+The number of folds will represent the number of genotypes which will have the value set to NA. Bear in mind that that all the genotypes in a fold will have their values deleted. We have 453 genotypes and defined $k = 3$, so each fold will have 151 genotypes. Therefore, for each repetition, we will predict the genomic breeding value of 151 genotypes based on the performance of 302 genotypes.
+
+<br>
+
+#### **2. Obtaining the estimated marginal means**
+
+```{r}
+mod = lm(Y ~ GENO + LOC, data = adjmeans)
+
+estmean = as.data.frame(emmeans(mod, specs = 'GENO'))[, 1:2]
+
+colnames(estmean) = c("GENO", "Y")
+```
+
+<br>
+
+#### **2. Match the order of the data and the rows of the SNP matrix by environment**
+
+```{r}
+estmean = estmean[order(estmean$GENO), ]
+SNPs = SNPs[order(row.names(SNPs)), ]
+```
+
+<br>
+
+#### **3. Add a column indicating a number for each genotype**
+
+Here, we will set a number for each genotype. Thus, we will substitute the ID column that we created in CV2 for a new ID column, appropriate for the CV1 scheme.
+
+```{r}
+names = as.numeric(as.factor(rownames(SNPs)))
+estmean$geno = NA
+for (i in 1:453) {
+  estmean$geno[which(rownames(SNPs)[i] == estmean$GENO)] <- names[i]
+}
+```
+
+<br>
+
+#### **4. Folds assignment**
+
+In this step, we will assign each genotype to a fold.
+
+```{r}
+estmean$geno = as.factor(estmean$geno)
+set.seed(100)
+sort <- list()
+for (a in 1:nrept) {
+  for (j in 1:nfolds) {
+    folds <-
+      cvFolds(nlevels(estmean$geno),
+              type = "random",
+              K = nfolds,
+              R = 1)
+    Sample <- cbind(folds$which, folds$subsets)
+    cv <- split(Sample[, 2], f = Sample[, 1])
+  }
+  sort[[a]] <- cv
+}
+rm(a, folds, j, cv, Sample)
+```
+
+<br>
+
+#### **5. Cross-validation**
+
+```{r}
+fold.list = sort
+results = list()
+Out = list()
+
+ETA = list(list(X = SNPs, model = "BRR"))
+
+for (z in 1:length(fold.list)) {
+  for (i in 1:nfolds) {
+    # Training set
+    train_data <- estmean
+    
+    # Validation set
+    train_data[train_data$geno %in% fold.list[[z]][[i]], "Y"] <- NA
+    
+    # Fitting model
+    CV_M <-
+      BGLR(
+        y = train_data$Y,
+        ETA = ETA,
+        nIter = 10000,
+        burnIn = 5000,
+        thin = 5,
+        verbose = F
+      )
+    
+    # GEBV
+    Pred <- data.frame(Yhat = CV_M$yHat, G = estmean$geno)
+    rownames(Pred) <- rownames(estmean$geno)
+    
+    # Predicted GEBV
+    results[[i]] <- Pred[Pred[, "G"] %in% fold.list[[z]][[i]],]
+    
+    # Remove
+    rm(CV_M, Pred, train_data)
+  }
+  
+  GEBV <- do.call(rbind, results)
+  GEBV <- GEBV[order(GEBV$G),]
+  
+  # Log
+  log <- all(GEBV$G == estmean$geno)
+  
+  # Results
+  Out[[z]] <- data.frame(
+    Rep = z,
+    Log = log,
+    Ac = round(cor(GEBV$Yhat, estmean$Y, use = "na.or.complete"), 3),
+    MSPE = round(mean(((GEBV$Yhat - estmean$Y) ^ 2
+    ), na.rm = T), 3),
+    Slope = round(unname(
+      lm(estmean$Y ~ GEBV$Yhat)$coefficients[2]
+    ), 3)
+  )
+}
+
+Out
+```
+
+

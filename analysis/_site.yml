@@ -1,17 +1,22 @@
-name: "Genomic-Selection_Course"
+name: "Genomic Selection Course"
 output_dir: ../docs
 navbar:
-  title: "Genomic-Selection_Course"
+  title: "Genomic Selection Course"
   left:
   - text: Home
     href: index.html
+  - text: Genomic Selection Single Environment
+    href: genomicselection.html
+  - text: Genomic Selection Multi Environment
+    href: genomicselection2.html
   - text: About
     href: about.html
   - text: License
     href: license.html
+    
 output:
   workflowr::wflow_html:
-    toc: yes
-    toc_float: yes
-    theme: cosmo
-    highlight: textmate
+    toc: true
+    toc_float: true
+    theme: flatly
+    highlight: haddock
