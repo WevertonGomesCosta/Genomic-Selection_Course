@@ -275,7 +275,7 @@ $(document).ready(function () {
 <p>
 <button type="button" class="btn btn-default btn-workflowr btn-workflowr-report" data-toggle="collapse" data-target="#workflowr-report">
 <span class="glyphicon glyphicon-list" aria-hidden="true"></span>
-workflowr <span class="glyphicon glyphicon-exclamation-sign text-danger"
+workflowr <span class="glyphicon glyphicon-ok text-success"
 aria-hidden="true"></span>
 </button>
 </p>
@@ -286,8 +286,8 @@ aria-hidden="true"></span>
 </li>
 <li>
 <a data-toggle="tab" href="#checks"> Checks <span
-class="glyphicon glyphicon-exclamation-sign text-danger"
-aria-hidden="true"></span> </a>
+class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span>
+</a>
 </li>
 <li>
 <a data-toggle="tab" href="#versions">Past versions</a>
@@ -296,13 +296,13 @@ aria-hidden="true"></span> </a>
 <div class="tab-content">
 <div id="summary" class="tab-pane fade in active">
 <p>
-<strong>Last updated:</strong> 2022-10-29
+<strong>Last updated:</strong> 2022-11-11
 </p>
 <p>
 <strong>Checks:</strong> <span
-class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> 1
+class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> 2
 <span class="glyphicon glyphicon-exclamation-sign text-danger"
-aria-hidden="true"></span> 1
+aria-hidden="true"></span> 0
 </p>
 <p>
 <strong>Knit directory:</strong> <code>Genomic-Selection_Course/</code>
@@ -325,36 +325,33 @@ versions</em> tab lists the development history.
 <div class="panel panel-default">
 <div class="panel-heading">
 <p class="panel-title">
-<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongRMarkdownfilestronguncommittedchanges">
-<span class="glyphicon glyphicon-exclamation-sign text-danger"
-aria-hidden="true"></span> <strong>R Markdown file:</strong> uncommitted
-changes </a>
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongRMarkdownfilestronguptodate">
+<span class="glyphicon glyphicon-ok text-success"
+aria-hidden="true"></span> <strong>R Markdown file:</strong> up-to-date
+</a>
 </p>
 </div>
-<div id="strongRMarkdownfilestronguncommittedchanges"
+<div id="strongRMarkdownfilestronguptodate"
 class="panel-collapse collapse">
 <div class="panel-body">
-<p>The R Markdown file has staged changes. To know which version of the
-R Markdown file created these results, you’ll want to first commit it to
-the Git repo. If you’re still working on the analysis, you can ignore
-this warning. When you’re finished, you can run
-<code>wflow_publish</code> to commit the R Markdown file and build the
-HTML.</p>
+<p>Great! Since the R Markdown file has been committed to the Git
+repository, you know the exact version of the code that produced these
+results.</p>
 </div>
 </div>
 </div>
 <div class="panel panel-default">
 <div class="panel-heading">
 <p class="panel-title">
-<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongRepositoryversionstrongahrefhttpsgithubcomWevertonGomesCostaGenomicSelectionCoursetree4f64fdfa265df3c1548088520eff8dce0bffc461targetblank4f64fdfa">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongRepositoryversionstrongahrefhttpsgithubcomWevertonGomesCostaGenomicSelectionCoursetree18971f3bef6ab4e3b8dfb2888f0f7e5551d331f1targetblank18971f3a">
 <span class="glyphicon glyphicon-ok text-success"
 aria-hidden="true"></span> <strong>Repository version:</strong>
-<a href="https://github.com/WevertonGomesCosta/Genomic-Selection_Course/tree/4f64fdfa265df3c1548088520eff8dce0bffc461" target="_blank">4f64fdf</a>
+<a href="https://github.com/WevertonGomesCosta/Genomic-Selection_Course/tree/18971f3bef6ab4e3b8dfb2888f0f7e5551d331f1" target="_blank">18971f3</a>
 </a>
 </p>
 </div>
 <div
-id="strongRepositoryversionstrongahrefhttpsgithubcomWevertonGomesCostaGenomicSelectionCoursetree4f64fdfa265df3c1548088520eff8dce0bffc461targetblank4f64fdfa"
+id="strongRepositoryversionstrongahrefhttpsgithubcomWevertonGomesCostaGenomicSelectionCoursetree18971f3bef6ab4e3b8dfb2888f0f7e5551d331f1targetblank18971f3a"
 class="panel-collapse collapse">
 <div class="panel-body">
 <p>
@@ -364,7 +361,7 @@ reproducibility.
 </p>
 <p>
 The results in this page were generated with repository version
-<a href="https://github.com/WevertonGomesCosta/Genomic-Selection_Course/tree/4f64fdfa265df3c1548088520eff8dce0bffc461" target="_blank">4f64fdf</a>.
+<a href="https://github.com/WevertonGomesCosta/Genomic-Selection_Course/tree/18971f3bef6ab4e3b8dfb2888f0f7e5551d331f1" target="_blank">18971f3</a>.
 See the <em>Past versions</em> tab to see a history of the changes made
 to the R Markdown and HTML files.
 </p>
@@ -380,30 +377,6 @@ were generated:
 <pre><code>
 Ignored files:
     Ignored:    .Rproj.user/
-
-Untracked files:
-    Untracked:  ETA_1_b.dat
-    Untracked:  ETA_2_varB.dat
-    Untracked:  ETA_2_varU.dat
-    Untracked:  ETA_3_varB.dat
-    Untracked:  ETA_3_varU.dat
-    Untracked:  analysis/genomicselection2.Rmd
-
-Unstaged changes:
-    Modified:   analysis/_site.yml
-    Modified:   analysis/genomicselection.Rmd
-    Modified:   analysis/license.Rmd
-    Modified:   mu.dat
-
-Staged changes:
-    New:        ETA_1_parBayesB.dat
-    New:        ETA_1_varB.dat
-    New:        ETA_1_varU.dat
-    Modified:   analysis/about.Rmd
-    New:        analysis/genomicselection.Rmd
-    Modified:   analysis/index.Rmd
-    New:        mu.dat
-    New:        varE.dat
 
 </code></pre>
 <p>
@@ -448,6 +421,40 @@ Message
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>
+Rmd
+</td>
+<td>
+<a href="https://github.com/WevertonGomesCosta/Genomic-Selection_Course/blob/18f97069a2617b45a1baf483ab58d7352c1ba170/analysis/index.Rmd" target="_blank">18f9706</a>
+</td>
+<td>
+WevertonGomesCosta
+</td>
+<td>
+2022-11-11
+</td>
+<td>
+Update
+</td>
+</tr>
+<tr>
+<td>
+html
+</td>
+<td>
+<a href="https://rawcdn.githack.com/WevertonGomesCosta/Genomic-Selection_Course/18f97069a2617b45a1baf483ab58d7352c1ba170/docs/index.html" target="_blank">18f9706</a>
+</td>
+<td>
+WevertonGomesCosta
+</td>
+<td>
+2022-11-11
+</td>
+<td>
+Update
+</td>
+</tr>
 <tr>
 <td>
 Rmd
